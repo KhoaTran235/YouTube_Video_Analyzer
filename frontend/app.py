@@ -2,7 +2,7 @@
 import streamlit as st
 import pandas as pd
 
-from utils import extract_video_id, clean_text, translate_text, compute_weighted_score
+from utils import extract_video_id, clean_text, translate_text
 from services.yt_service import get_video_info, get_comments
 from services.comment_sentiment import analyze_sentiment
 
