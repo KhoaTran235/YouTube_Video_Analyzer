@@ -17,6 +17,7 @@ logs/
 tmp/
 output/
 checkpoints/
+onnx_lora_bert/
 
 # Bỏ Git và tài liệu
 .git/

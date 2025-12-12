@@ -9,8 +9,8 @@ from services.comment_sentiment import analyze_sentiment
 # =========================
 # Main UI
 # =========================
-st.set_page_config(page_title="YouTube Video Scorer", layout="centered")
-st.title("🎥 YouTube Video Scorer")
+st.set_page_config(page_title="YouTube Video Analyzer", layout="centered")
+st.title("🎥 YouTube Video Analyzer")
 st.info("Analyze YouTube video based on video stats and comment sentiments.")
 url = st.text_input("Input YouTube video URL:")
 use_video_likes = st.checkbox("Include video like ratio in score", value=True)

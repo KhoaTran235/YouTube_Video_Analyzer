@@ -1,7 +1,8 @@
 # ==============================
 # 1️⃣ Base image có CUDA + cuDNN
 # ==============================
-FROM pytorch/pytorch:2.7.0-cuda12.8-cudnn9-runtime
+FROM python:3.10-slim
+
 
 # ==============================
 # 2️⃣ Cài đặt cơ bản

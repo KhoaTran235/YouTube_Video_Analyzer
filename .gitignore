@@ -3,6 +3,8 @@ __pycache__/
 
 .env
 frontend/.env
+frontend/venv/
+backend/venv/
 .vscode/
 .DS_Store
 env/

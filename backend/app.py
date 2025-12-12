@@ -1,19 +1,21 @@
+from huggingface_hub import hf_hub_download
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
 import onnxruntime as ort
 from transformers import AutoTokenizer
 import numpy as np
 import time
-import os
+from fastapi import FastAPI, HTTPException
+from models.sentiment import TextsRequest, PredictionResponse
 
-MODEL_PATH = "onnx_lora_bert/model.onnx"
-TOKENIZER_PATH = "onnx_lora_bert"
+# MODEL_PATH = "onnx_lora_bert/model.onnx"
+# TOKENIZER_PATH = "onnx_lora_bert"
 BATCH_LIMIT = 16   # batch limit for each inference call
 MAX_LENGTH = 128   # max token length
+MAX_REQUEST_SAMPLES = 128  # max samples per request
 NUM_WORKERS = 4    # number of concurrent threads
 REQUEST_TIMEOUT = 15.0  # seconds
 
@@ -22,14 +24,30 @@ if "CUDAExecutionProvider" in ort.get_available_providers():
 else:
     provider = "CPUExecutionProvider"
 
+HF_REPO = "khoa-tran-hcmut/sentiment_lora_bert"
+
+MODEL_PATH = hf_hub_download(
+    repo_id=HF_REPO,
+    filename="model.onnx",
+    subfolder="onnx_lora_bert"
+)
+tokenizer = AutoTokenizer.from_pretrained(
+    HF_REPO,
+    subfolder="onnx_lora_bert"
+)
+
+print("Loaded from HuggingFace:", MODEL_PATH)
+
 session = ort.InferenceSession(MODEL_PATH, providers=[provider])
-tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
+# tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
 print(f"Model loaded on: {session.get_providers()[0]}")
 
 executor = ThreadPoolExecutor(max_workers=NUM_WORKERS)
 
 app = FastAPI(title="Sentiment Analysis API", version="1.0")
 
+
+# Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -54,9 +72,8 @@ async def timeout_middleware(request: Request, call_next):
     except asyncio.TimeoutError:
         return JSONResponse(status_code=504, content={"detail": "Request timed out."})
 
-class TextsRequest(BaseModel):
-    texts: list[str]
 
+# Inference functions
 def run_inference_batch(texts: list[str]) -> list[int]:
     inputs = tokenizer(
         texts,
@@ -91,18 +108,20 @@ async def run_inference_async(texts: list[str]) -> list[int]:
     all_preds = await asyncio.gather(*tasks)
     return [p for chunk in all_preds for p in chunk]
 
+
+# API Endpoints
 @app.get("/")
 def root():
     return {"message": "Welcome to the Sentiment Analysis API. Use the /predict endpoint to analyze sentiment."}    
 
-@app.post("/predict")
+@app.post("/predict", response_model=PredictionResponse)
 async def predict_sentiment(text_request: TextsRequest):
     texts = text_request.texts
     if not texts:
         raise HTTPException(status_code=400, detail="Empty input list.")
     
-    if len(texts) > 128:
-        raise HTTPException(status_code=413, detail="Batch too large (max 128 samples).")
+    if len(texts) > MAX_REQUEST_SAMPLES:
+        raise HTTPException(status_code=413, detail=f"Batch too large (max {MAX_REQUEST_SAMPLES} samples).")
 
     preds = await run_inference_async(texts)
     results = [
