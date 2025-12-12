@@ -1,0 +1,7 @@
+streamlit
+google-api-python-client
+requests
+pandas
+langchain
+google-generativeai
+python-dotenv

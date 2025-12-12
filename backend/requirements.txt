@@ -1,0 +1,4 @@
+onnxruntime-gpu
+transformers
+fastapi
+uvicorn
