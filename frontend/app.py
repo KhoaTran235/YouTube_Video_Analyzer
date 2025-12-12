@@ -16,14 +16,6 @@ url = st.text_input("Input YouTube video URL:")
 use_video_likes = st.checkbox("Include video like ratio in score", value=True)
 use_comment_likes = st.checkbox("Analyze based on comment likes", value=True)
 
-if use_comment_likes:
-    st.latex(r"""
-    \int_a^b f(x)\,dx = F(b) - F(a)
-    """)
-else:
-    st.latex(r"""
-    e^{i\pi} + 1 = 0
-    """)
 
 if url:
     st.info("Processing URL...")

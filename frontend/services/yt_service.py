@@ -1,5 +1,6 @@
 import os
 from googleapiclient.discovery import build
+from youtube_transcript_api import YouTubeTranscriptApi
 from dotenv import load_dotenv
 
 
@@ -7,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 YOUTUBE_API_KEY = os.getenv("GOOGLE_API_KEY")
 youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
+ytt_api = YouTubeTranscriptApi()
 # response = youtube.commentThreads().list(
 #     part="snippet,replies",
 #     videoId="sQcrZHvrEnU"
@@ -40,7 +42,20 @@ def get_video_info(video_id):
         "comments": int(item["statistics"].get("commentCount", 0)),
     }
 
-def get_comments(video_id, max_results=100):
+def get_video_transcript(video_id):
+    fetched_transcript = ytt_api.fetch(video_id)
+
+    # is iterable
+    for snippet in fetched_transcript:
+        print(snippet.text)
+
+    # indexable
+    last_snippet = fetched_transcript[-1]
+
+    # provides a length
+    snippet_count = len(fetched_transcript)
+
+def get_video_comments(video_id, max_results=1000):
     comments = []
     request = youtube.commentThreads().list(
         part="snippet",
@@ -72,11 +87,13 @@ def get_comments(video_id, max_results=100):
 
     return comments
 
-info = get_video_info("iWrZzFel2S0")
-comments = get_comments("iWrZzFel2S0", max_results=100)
+video_id = "8V82hbiVzfE"
+info = get_video_info(video_id)
+comments = get_video_comments(video_id, max_results=100)
 print("=== VIDEO INFO ===")
 print(info)
 print("=== COMMENTS ===")
 for c in comments:
     print(c)
 print(f"Total comments fetched: {len(comments)}")
+get_video_transcript(video_id)
