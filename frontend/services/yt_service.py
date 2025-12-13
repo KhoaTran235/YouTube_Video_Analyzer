@@ -37,6 +37,7 @@ def get_video_info(video_id):
     item = response["items"][0]
     return {
         "title": item["snippet"]["title"],
+        "description": item["snippet"]["description"] if "description" in item["snippet"] else "No description available for this video.",
         "views": int(item["statistics"].get("viewCount", 0)),
         "likes": int(item["statistics"].get("likeCount", 0)),
         "comments": int(item["statistics"].get("commentCount", 0)),
@@ -48,6 +49,7 @@ def get_video_transcript(video_id):
     # is iterable
     for snippet in fetched_transcript:
         print(snippet.text)
+        print('---')
 
     # indexable
     last_snippet = fetched_transcript[-1]
@@ -86,14 +88,3 @@ def get_video_comments(video_id, max_results=1000):
             break
 
     return comments
-
-video_id = "8V82hbiVzfE"
-info = get_video_info(video_id)
-comments = get_video_comments(video_id, max_results=100)
-print("=== VIDEO INFO ===")
-print(info)
-print("=== COMMENTS ===")
-for c in comments:
-    print(c)
-print(f"Total comments fetched: {len(comments)}")
-get_video_transcript(video_id)
