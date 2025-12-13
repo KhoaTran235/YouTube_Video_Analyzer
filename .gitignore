@@ -4,7 +4,10 @@ __pycache__/
 .env
 frontend/.env
 frontend/venv/
+frontend/__pycache__/
+frontend/test.py
 backend/venv/
+backend/__pycache__/
 .vscode/
 .DS_Store
 env/

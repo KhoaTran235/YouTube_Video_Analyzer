@@ -35,9 +35,10 @@ def get_video_info(video_id):
     if not response["items"]:
         return None
     item = response["items"][0]
+
     return {
         "title": item["snippet"]["title"],
-        "description": item["snippet"]["description"] if "description" in item["snippet"] else "No description available for this video.",
+        "description": item["snippet"]["description"] if (item["snippet"]["description"] != '') else "No description available for this video.",
         "views": int(item["statistics"].get("viewCount", 0)),
         "likes": int(item["statistics"].get("likeCount", 0)),
         "comments": int(item["statistics"].get("commentCount", 0)),
