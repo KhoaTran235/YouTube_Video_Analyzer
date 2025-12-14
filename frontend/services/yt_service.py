@@ -9,20 +9,6 @@ load_dotenv()
 YOUTUBE_API_KEY = os.getenv("GOOGLE_API_KEY")
 youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 ytt_api = YouTubeTranscriptApi()
-# response = youtube.commentThreads().list(
-#     part="snippet,replies",
-#     videoId="sQcrZHvrEnU"
-# ).execute()
-# print(response["items"][0]["snippet"]["topLevelComment"]["snippet"]["textOriginal"])
-# print(response["items"][0]["replies"]["comments"][0]["snippet"]["textOriginal"])
-# print(response["items"][0]["replies"]["comments"][1]["snippet"]["textOriginal"])
-
-# for item in response["items"]:
-#     s = item["snippet"]["topLevelComment"]["snippet"]
-#     author = s.get("authorDisplayName", "")
-#     text = html.unescape(s.get("textDisplay", ""))  
-#     likes = s.get("likeCount", 0)
-#     print(f"{author}: {text} ({likes} likes)")
 
 
 def get_video_info(video_id):
@@ -64,7 +50,7 @@ def get_video_comments(video_id, max_results=1000):
         part="snippet",
         videoId=video_id,
         textFormat="plainText",
-        maxResults=min(max_results, 100)
+        maxResults=max_results
     )
     response = request.execute()
 
@@ -72,6 +58,7 @@ def get_video_comments(video_id, max_results=1000):
         for item in response["items"]:
             snippet = item["snippet"]["topLevelComment"]["snippet"]
             comments.append({
+                "author": snippet["authorDisplayName"],
                 "text": snippet["textOriginal"],
                 "likeCount": snippet.get("likeCount", 0)
             })

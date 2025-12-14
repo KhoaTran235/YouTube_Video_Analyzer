@@ -5,6 +5,8 @@ from utils import extract_video_id
 from services.comment_sentiment import analyze_sentiment
 from services.yt_service import get_video_info, get_video_comments, get_video_transcript
 from utils import merge_comments_with_sentiment, sentiment_statistics
+from rag_pipeline.build_vectorstore import build_vectorstore
+from rag_pipeline.chain import get_session_rag_chain
 
 # =========================
 # Define cached functions
@@ -33,7 +35,12 @@ if "stats" not in st.session_state:
 if "last_video_id" not in st.session_state:
     st.session_state.last_video_id = None
 
-MAX_COMMENTS = 1000
+if "vectorstore" not in st.session_state:
+    st.session_state.vectorstore = None
+
+
+
+MAX_COMMENTS = 10
 # =========================
 # Main UI
 # =========================
@@ -82,6 +89,7 @@ if url:
                 merged = merge_comments_with_sentiment(comments, predictions)
 
                 stats = sentiment_statistics(merged)
+                st.session_state.vectorstore = build_vectorstore(merged)
 
                 st.session_state.stats = stats
                 st.session_state.analysis_done = True
@@ -178,7 +186,7 @@ if url:
 
 
                 # ===== CHAT BOX (SCROLLABLE) =====
-                chat_box = st.container(height=400)  # chỉnh chiều cao tùy ý
+                chat_box = st.container(height=482)  # chỉnh chiều cao tùy ý
 
                 with chat_box:
                     for chat in st.session_state.chat_history:
@@ -191,6 +199,8 @@ if url:
                 if st.session_state.chat_history:
                     if st.button("🗑 Reset conversation"):
                         st.session_state.chat_history = []
+                        if "rag_memory" in st.session_state:
+                            del st.session_state.rag_memory
                         st.rerun()
 
                 st.divider()
@@ -202,10 +212,20 @@ if url:
 
                 if user_query:
                     with st.spinner("Thinking..."):
-                        answer = "You are noob."
+                        qa_chain = get_session_rag_chain(info)
+
+                        if qa_chain is None:
+                            answer = "Please analyze the video first."
+                        else:
+                            result = qa_chain.invoke(user_query)
+                            answer = result.content
+
                         st.session_state.chat_history.append({
                             "user": user_query,
                             "assistant": answer
                         })
+
                     st.rerun()
+
+
 

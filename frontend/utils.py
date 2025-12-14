@@ -31,6 +31,7 @@ def merge_comments_with_sentiment(comments, predictions):
         sent = results[i]
 
         merged.append({
+            "author": cmt["author"],
             "text": cmt["text"],                 # text gốc
             "likeCount": cmt["likeCount"],
             "sentiment": SENTIMENT_MAP[sent["predicted_class"]]
