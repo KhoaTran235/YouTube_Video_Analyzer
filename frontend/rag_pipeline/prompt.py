@@ -9,8 +9,8 @@ SYSTEM_PROMPT = """
     Video description:
     {description}
 
-    Conversation so far:
-    empty
+    Conversation so far (summary):
+    {chat_history}
 
     Rules:
     - Answer strictly based on the retrieved context

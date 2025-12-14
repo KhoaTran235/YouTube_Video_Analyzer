@@ -220,6 +220,11 @@ if url:
                             result = qa_chain.invoke(user_query)
                             answer = result.content
 
+                            st.session_state.rag_memory.save_context(
+                                {"input": user_query},
+                                {"output": answer}
+                            )
+                        
                         st.session_state.chat_history.append({
                             "user": user_query,
                             "assistant": answer

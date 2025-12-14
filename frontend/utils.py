@@ -41,35 +41,30 @@ def merge_comments_with_sentiment(comments, predictions):
 
 
 def sentiment_statistics(merged):
-    """
-    merged item format:
-    {
-        "text": "...",
-        "likeCount": int,
-        "sentiment": "positive" | "neutral" | "negative"
-    }
-    """
-
     comment_counter = Counter()
-    like_counter = Counter()
+    like_counter = Counter()          # vẫn giữ tên
+    weight_counter = Counter()        # nội bộ, KHÔNG expose
 
     for item in merged:
         label = item["sentiment"]
+        likes = max(item.get("likeCount", 0), 0)
+
         comment_counter[label] += 1
-        like_counter[label] += max(item.get("likeCount", 0), 0)
+        like_counter[label] += likes
+        weight_counter[label] += 1 + likes   # ⭐ sửa logic ở đây
 
     total_comments = sum(comment_counter.values())
-    total_likes = sum(like_counter.values())
+    total_weight = sum(weight_counter.values())
 
-    def build_distribution(comment_ctr, like_ctr, total, use_like=False):
+    def build_distribution(comment_ctr, weight_ctr, like_ctr, total, use_like=False):
         dist = {}
         for label in ["negative", "neutral", "positive"]:
-            base = like_ctr[label] if use_like else comment_ctr[label]
+            base = weight_ctr[label] if use_like else comment_ctr[label]
             percentage = round(base / total * 100, 2) if total > 0 else 0.0
 
             dist[label] = {
-                "comment_count": comment_ctr[label],   # luôn là số comment thật
-                "like_weight": like_ctr[label],        # tổng like
+                "comment_count": comment_ctr[label],   # giữ nguyên
+                "like_weight": like_ctr[label],        # giữ nguyên semantic cũ
                 "percentage": percentage
             }
         return dist
@@ -81,6 +76,7 @@ def sentiment_statistics(merged):
             "total": total_comments,
             "distribution": build_distribution(
                 comment_counter,
+                comment_counter,
                 like_counter,
                 total_comments,
                 use_like=False
@@ -88,11 +84,12 @@ def sentiment_statistics(merged):
         },
 
         "weighted": {
-            "total": total_likes if total_likes > 0 else 1,
+            "total": total_weight,   # 🔧 không còn hack = 1
             "distribution": build_distribution(
                 comment_counter,
+                weight_counter,      # ⭐ dùng weight nội bộ
                 like_counter,
-                total_likes if total_likes > 0 else 1,
+                total_weight,
                 use_like=True
             )
         }

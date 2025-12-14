@@ -6,8 +6,7 @@ from dotenv import load_dotenv
 
 # from config import YOUTUBE_API_KEY
 load_dotenv()
-YOUTUBE_API_KEY = os.getenv("GOOGLE_API_KEY")
-youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
+youtube = build("youtube", "v3", developerKey=os.getenv("GOOGLE_API_KEY"))
 ytt_api = YouTubeTranscriptApi()
 
 

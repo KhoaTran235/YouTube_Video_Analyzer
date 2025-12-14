@@ -9,7 +9,7 @@ load_dotenv()
 class GeminiEmbedding(Embeddings):
     def __init__(self):
         self.client = genai.Client(
-            api_key=os.environ["GEMINI_API_KEY"]
+            api_key=os.environ["GOOGLE_API_KEY"]
         )
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
