@@ -17,7 +17,7 @@ BATCH_LIMIT = 16   # batch limit for each inference call
 MAX_LENGTH = 128   # max token length
 MAX_REQUEST_SAMPLES = 128  # max samples per request
 NUM_WORKERS = 4    # number of concurrent threads
-REQUEST_TIMEOUT = 15.0  # seconds
+REQUEST_TIMEOUT = 90.0  # seconds
 
 if "CUDAExecutionProvider" in ort.get_available_providers():
     provider = "CUDAExecutionProvider"
@@ -114,20 +114,33 @@ async def run_inference_async(texts: list[str]) -> list[int]:
 def root():
     return {"message": "Welcome to the Sentiment Analysis API. Use the /predict endpoint to analyze sentiment."}    
 
+semaphore = asyncio.Semaphore(NUM_WORKERS)
+
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_sentiment(text_request: TextsRequest):
-    texts = text_request.texts
-    if not texts:
-        raise HTTPException(status_code=400, detail="Empty input list.")
+    try:
+        await asyncio.wait_for(semaphore.acquire(), timeout=20)
+    except asyncio.TimeoutError:
+        raise HTTPException(429, "Too many concurrent requests")
+
+    try:
+        texts = text_request.texts
+
+        if not texts:
+            raise HTTPException(status_code=400, detail="Empty input list.")
+        
+        if len(texts) > MAX_REQUEST_SAMPLES:
+            raise HTTPException(status_code=413, detail=f"Batch too large (max {MAX_REQUEST_SAMPLES} samples).")
+
+        preds = await run_inference_async(texts)
+        
+        results = [
+            {"text": text, "predicted_class": int(pred)}
+            for text, pred in zip(texts, preds)
+        ]
+
+        return {"batch_size": len(texts),
+                "results": results}
     
-    if len(texts) > MAX_REQUEST_SAMPLES:
-        raise HTTPException(status_code=413, detail=f"Batch too large (max {MAX_REQUEST_SAMPLES} samples).")
-
-    preds = await run_inference_async(texts)
-    results = [
-        {"text": text, "predicted_class": int(pred)}
-        for text, pred in zip(texts, preds)
-    ]
-
-    return {"batch_size": len(texts),
-            "results": results}
+    finally:
+        semaphore.release()

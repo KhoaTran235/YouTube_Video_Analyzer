@@ -1,7 +1,7 @@
 # app.py
 import streamlit as st
-
-from utils import extract_video_id, clean_text, translate_text
+import matplotlib.pyplot as plt
+from utils import extract_video_id
 from services.comment_sentiment import analyze_sentiment
 from services.yt_service import get_video_info, get_video_comments, get_video_transcript
 from utils import merge_comments_with_sentiment, sentiment_statistics
@@ -17,6 +17,10 @@ def cached_get_video_comments(video_id, max_results):
 def cached_analyze_sentiment(texts):
     return analyze_sentiment(texts)
 
+@st.cache_data(show_spinner=False)
+def cached_get_video_transcript(video_id, language="en"):
+    return get_video_transcript(video_id, language)
+
 # =========================
 # Session state init
 # =========================
@@ -29,6 +33,7 @@ if "stats" not in st.session_state:
 if "last_video_id" not in st.session_state:
     st.session_state.last_video_id = None
 
+MAX_COMMENTS = 1000
 # =========================
 # Main UI
 # =========================
@@ -67,8 +72,9 @@ if url:
             st.session_state.last_video_id = video_id
 
         if st.button("Analyze Video"):
+            st.write(f"Maximum {MAX_COMMENTS} comments are analyzed.")
             with st.spinner("🔄 Fetching comments & analyzing sentiment..."):
-                MAX_COMMENTS = 500
+
                 comments = cached_get_video_comments(video_id, max_results=MAX_COMMENTS)
                 texts = [{"text": c["text"]} for c in comments]
 
@@ -83,7 +89,6 @@ if url:
         if st.session_state.analysis_done:
             st.divider()
             left_col, right_col = st.columns([1.2, 1])
-            
             with left_col:
                 # --- Summary ---
                 st.subheader("📊 Comment Sentiment Overview")
@@ -130,6 +135,30 @@ if url:
                 render_metric(col1, "negative", "🔴")
                 render_metric(col2, "neutral", "🟡")
                 render_metric(col3, "positive", "🟢")
+
+                labels = ["Negative", "Neutral", "Positive"]
+                sizes = [
+                    dist["negative"]["percentage"],
+                    dist["neutral"]["percentage"],
+                    dist["positive"]["percentage"],
+                ]
+
+                colors = ["#ff4d4d", "#ffd966", "#4CAF50"]
+
+                fig, ax = plt.subplots(figsize=(5, 2))
+                ax.pie(
+                    sizes,
+                    labels=labels,
+                    autopct="%1.2f%%",
+                    startangle=90,
+                    colors=colors,
+                    wedgeprops={"edgecolor": "white"},
+                )
+
+                ax.axis("equal")  # hình tròn chuẩn
+                ax.set_title("Sentiment Distribution", pad=20)
+
+                st.pyplot(fig)
 
                 st.divider()
 

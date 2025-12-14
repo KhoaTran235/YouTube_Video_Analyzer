@@ -9,7 +9,7 @@ SENTIMENT_API_URL = os.getenv("SENTIMENT_API_URL")
 
 def send_batch(chunk):
     payload = {"texts": chunk}
-    response = requests.post(SENTIMENT_API_URL, json=payload)
+    response = requests.post(SENTIMENT_API_URL, json=payload, timeout=50)
     if response.status_code == 200:
         return response.json()
     else:
