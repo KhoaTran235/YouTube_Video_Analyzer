@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 from utils import extract_video_id
 from services.comment_sentiment import analyze_sentiment
 from services.yt_service import get_video_info, get_video_comments, get_video_transcript
-from utils import merge_comments_with_sentiment, sentiment_statistics
-from rag_pipeline.build_vectorstore import build_vectorstore
+from services.video_summarize import summarize_video
+from utils import merge_comments_with_sentiment, sentiment_statistics, merge_transcript_by_time
+from rag_pipeline.build_vectorstore import build_comment_vectorstore, build_transcript_vectorstore
 from rag_pipeline.chain import get_session_rag_chain
 
 # =========================
@@ -20,8 +21,12 @@ def cached_analyze_sentiment(texts):
     return analyze_sentiment(texts)
 
 @st.cache_data(show_spinner=False)
-def cached_get_video_transcript(video_id, language="en"):
-    return get_video_transcript(video_id, language)
+def cached_get_video_transcript(video_id):
+    return get_video_transcript(video_id)
+
+@st.cache_data(show_spinner=False)
+def cached_summarize_video(video_url):
+    return summarize_video(video_url)
 
 # =========================
 # Session state init
@@ -35,8 +40,14 @@ if "stats" not in st.session_state:
 if "last_video_id" not in st.session_state:
     st.session_state.last_video_id = None
 
-if "vectorstore" not in st.session_state:
-    st.session_state.vectorstore = None
+if "video_summary" not in st.session_state:
+    st.session_state.video_summary = None
+
+if "comment_vectorstore" not in st.session_state:
+    st.session_state.comment_vectorstore = None
+
+if "transcript_vectorstore" not in st.session_state:
+    st.session_state.transcript_vectorstore = None
 
 
 
@@ -68,15 +79,29 @@ if url:
         
         info = get_video_info(video_id) # Fetch video info
         if info:
-            st.subheader("📊 Video Information:")
-            st.write(f"**Title:** {info['title']}")
-            st.write(f"**Description:** {info['description']}")
-            st.write(f"👁️ {info['views']:,} views | 👍 {info['likes']:,} likes | 💬 {info['comments']:,} comments")
+            st.divider()
+            left_col, right_col = st.columns([1.2, 1])
+            with left_col:
+                st.subheader("📊 Video Information:")
+                st.write(f"**Title:** {info['title']}")
+                st.write(f"**Description:** {info['description']}")
+                st.write(f"👁️ {info['views']:,} views | 👍 {info['likes']:,} likes | 💬 {info['comments']:,} comments")
+            with right_col:
+                if st.button("Get Video Summary by AI"):
+                    st.session_state.video_summary = cached_summarize_video(url)
+
+                if st.session_state.video_summary:
+                    st.write(f"**AI-generated Summary:** {st.session_state.video_summary}")
 
         if video_id != st.session_state.last_video_id:      # New video URL entered (reset state)
             st.session_state.analysis_done = False
             st.session_state.stats = None
             st.session_state.last_video_id = video_id
+            st.session_state.comment_vectorstore = None
+            st.session_state.transcript_vectorstore = None
+            st.session_state.video_summary = None
+
+        st.divider()
 
         if st.button("Analyze Video"):
             st.write(f"Maximum {MAX_COMMENTS} comments are analyzed.")
@@ -86,16 +111,25 @@ if url:
                 texts = [{"text": c["text"]} for c in comments]
 
                 predictions = cached_analyze_sentiment(texts)
-                merged = merge_comments_with_sentiment(comments, predictions)
+                merged_comment = merge_comments_with_sentiment(comments, predictions)
 
-                stats = sentiment_statistics(merged)
-                st.session_state.vectorstore = build_vectorstore(merged)
+                stats = sentiment_statistics(merged_comment)
+                st.session_state.comment_vectorstore = build_comment_vectorstore(merged_comment)
+
+                transcript = cached_get_video_transcript(video_id)
+                merged_transcript = merge_transcript_by_time(transcript, max_duration=90.0)
+
+                st.session_state.transcript_vectorstore = build_transcript_vectorstore(merged_transcript)
+                
+                # if st.session_state.video_summary is None:
+                #     st.session_state.video_summary = cached_summarize_video(url)
+
 
                 st.session_state.stats = stats
                 st.session_state.analysis_done = True
 
         if st.session_state.analysis_done:
-            st.divider()
+            
             left_col, right_col = st.columns([1.2, 1])
             with left_col:
                 # --- Summary ---
@@ -168,7 +202,6 @@ if url:
 
                 st.pyplot(fig)
 
-                st.divider()
 
                 # --- Explanation ---
                 st.caption(
@@ -180,7 +213,10 @@ if url:
 
             with right_col:
                 st.subheader("🤖 Ask AI about this video (Powered by Google Gemini)")
-
+                if st.session_state.video_summary:
+                    st.success("Video summary is enabled for chatbot")
+                else:
+                    st.info("Chatbot is using transcript and comments only (no summary)")
                 if "chat_history" not in st.session_state:
                     st.session_state.chat_history = []
 
@@ -203,7 +239,6 @@ if url:
                             del st.session_state.rag_memory
                         st.rerun()
 
-                st.divider()
 
                 # ===== INPUT LUÔN Ở DƯỚI =====
                 user_query = st.chat_input(
@@ -212,7 +247,10 @@ if url:
 
                 if user_query:
                     with st.spinner("Thinking..."):
-                        qa_chain = get_session_rag_chain(info)
+                        qa_chain = get_session_rag_chain(
+                                        info,
+                                        video_summary=st.session_state.video_summary
+                                    )
 
                         if qa_chain is None:
                             answer = "Please analyze the video first."

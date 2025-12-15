@@ -31,17 +31,7 @@ def get_video_info(video_id):
 
 def get_video_transcript(video_id):
     fetched_transcript = ytt_api.fetch(video_id)
-
-    # is iterable
-    for snippet in fetched_transcript:
-        print(snippet.text)
-        print('---')
-
-    # indexable
-    last_snippet = fetched_transcript[-1]
-
-    # provides a length
-    snippet_count = len(fetched_transcript)
+    return fetched_transcript
 
 def get_video_comments(video_id, max_results=1000):
     comments = []

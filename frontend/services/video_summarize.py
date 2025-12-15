@@ -7,21 +7,26 @@ from dotenv import load_dotenv
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-model = genai.GenerativeModel("gemini-2.0-flash")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 def summarize_video(video_url):
     prompt = """
-        Summarize the YouTube video in a concise, neutral, high-level manner.
+    You are summarizing a YouTube video to provide background context for a retrieval-augmented QA system.
 
-        Constraints:
-        - Maximum 150 words
-        - Focus on the main topic, intent, and overall structure
-        - Do NOT go into detailed explanations
-        - Do NOT include viewer opinions or comments
-        - Do NOT quote sentences verbatim
-        - The summary will be used as system-level context for a question-answering assistant
+    Requirements:
+    - Maximum 150 words
+    - High-level and neutral summary
+    - Describe the main topic, speaker intent, and overall structure
+    - Do NOT include technical details or step-by-step explanations
+    - Do NOT include viewer opinions or comments
+    - Do NOT quote sentences verbatim
+    - Do NOT introduce interpretations beyond what is clearly stated
 
-        Write in clear, factual language.
+    Important:
+    - This summary is for background understanding only
+    - It must NOT be treated as a source of factual evidence for answering questions
+
+    Write in clear, factual language.
     """
     response = model.generate_content(
         [
@@ -30,5 +35,3 @@ def summarize_video(video_url):
         ]
     )
     return response.text
-
-print(summarize_video("https://www.youtube.com/watch?v=sQcrZHvrEnU"))

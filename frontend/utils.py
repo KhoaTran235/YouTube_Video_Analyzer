@@ -13,7 +13,7 @@ def clean_text(text: str):
     return text.strip()
 
 def translate_text(text: str, target_language: str = "en"):
-    return text
+    pass
 
 SENTIMENT_MAP = {
     0: "negative",
@@ -32,7 +32,7 @@ def merge_comments_with_sentiment(comments, predictions):
 
         merged.append({
             "author": cmt["author"],
-            "text": cmt["text"],                 # text gốc
+            "text": cmt["text"],
             "likeCount": cmt["likeCount"],
             "sentiment": SENTIMENT_MAP[sent["predicted_class"]]
         })
@@ -42,8 +42,8 @@ def merge_comments_with_sentiment(comments, predictions):
 
 def sentiment_statistics(merged):
     comment_counter = Counter()
-    like_counter = Counter()          # vẫn giữ tên
-    weight_counter = Counter()        # nội bộ, KHÔNG expose
+    like_counter = Counter()
+    weight_counter = Counter()
 
     for item in merged:
         label = item["sentiment"]
@@ -51,7 +51,7 @@ def sentiment_statistics(merged):
 
         comment_counter[label] += 1
         like_counter[label] += likes
-        weight_counter[label] += 1 + likes   # ⭐ sửa logic ở đây
+        weight_counter[label] += 1 + likes
 
     total_comments = sum(comment_counter.values())
     total_weight = sum(weight_counter.values())
@@ -63,8 +63,8 @@ def sentiment_statistics(merged):
             percentage = round(base / total * 100, 2) if total > 0 else 0.0
 
             dist[label] = {
-                "comment_count": comment_ctr[label],   # giữ nguyên
-                "like_weight": like_ctr[label],        # giữ nguyên semantic cũ
+                "comment_count": comment_ctr[label],
+                "like_weight": like_ctr[label],
                 "percentage": percentage
             }
         return dist
@@ -84,13 +84,49 @@ def sentiment_statistics(merged):
         },
 
         "weighted": {
-            "total": total_weight,   # 🔧 không còn hack = 1
+            "total": total_weight,
             "distribution": build_distribution(
                 comment_counter,
-                weight_counter,      # ⭐ dùng weight nội bộ
+                weight_counter,
                 like_counter,
                 total_weight,
                 use_like=True
             )
         }
     }
+
+def merge_transcript_by_time(snippets, max_duration=60.0):
+    merged = []
+    buffer = []
+    start_time = None
+    total_duration = 0.0
+
+    for s in snippets:
+        if start_time is None:
+            start_time = s.start
+
+        buffer.append(s.text)
+        total_duration += s.duration
+
+        if total_duration >= max_duration:
+            merged.append({
+                "text": " ".join(buffer),
+                "start": start_time,
+                "duration": total_duration
+            })
+            buffer = []
+            start_time = None
+            total_duration = 0.0
+
+    if buffer:
+        merged.append({
+            "text": " ".join(buffer),
+            "start": start_time,
+            "duration": total_duration
+        })
+
+    return merged
+
+def split_sentences(text: str):
+    # Split by . ? !
+    return re.split(r'(?<=[.!?])\s+', text)
