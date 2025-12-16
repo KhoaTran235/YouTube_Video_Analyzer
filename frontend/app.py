@@ -7,7 +7,8 @@ from services.yt_service import get_video_info, get_video_comments, get_video_tr
 from services.video_summarize import summarize_video
 from utils import merge_comments_with_sentiment, sentiment_statistics, merge_transcript_by_time
 from rag_pipeline.build_vectorstore import build_comment_vectorstore, build_transcript_vectorstore
-from rag_pipeline.chain import get_session_rag_chain
+from rag_pipeline.chain import get_session_rag_chain, get_session_direct_chain
+from rag_pipeline.router import semantic_router
 
 # =========================
 # Define cached functions
@@ -49,9 +50,13 @@ if "comment_vectorstore" not in st.session_state:
 if "transcript_vectorstore" not in st.session_state:
     st.session_state.transcript_vectorstore = None
 
+if "pending_user_query" not in st.session_state:
+    st.session_state.pending_user_query = None
 
 
-MAX_COMMENTS = 10
+
+
+MAX_COMMENTS = 200
 # =========================
 # Main UI
 # =========================
@@ -94,12 +99,24 @@ if url:
                     st.write(f"**AI-generated Summary:** {st.session_state.video_summary}")
 
         if video_id != st.session_state.last_video_id:      # New video URL entered (reset state)
+            # Core data
             st.session_state.analysis_done = False
             st.session_state.stats = None
             st.session_state.last_video_id = video_id
+
+            # Reset RAG-related state
             st.session_state.comment_vectorstore = None
             st.session_state.transcript_vectorstore = None
             st.session_state.video_summary = None
+            st.session_state.chat_history = []
+            if "rag_memory" in st.session_state:
+                del st.session_state.rag_memory
+            st.session_state.pending_user_query = None
+
+            # Reset UI options
+            st.session_state.use_comment_likes = False
+
+            st.rerun()
 
         st.divider()
 
@@ -137,7 +154,7 @@ if url:
 
                 use_comment_likes = st.checkbox(
                     "Analyze based on comment likes",
-                    value=True,
+                    value=False,
                     help=(
                         "✔ Unchecked: Each comment counts as 1\n\n"
                         "✔ Checked: Comments with more likes contribute more weight\n"
@@ -244,29 +261,49 @@ if url:
                 user_query = st.chat_input(
                     "Ask a question about comments, sentiment, or audience opinion"
                 )
-
+                
                 if user_query:
-                    with st.spinner("Thinking..."):
+                    # 1. Hiện ngay message của user
+                    st.session_state.chat_history.append({
+                        "user": user_query,
+                        "assistant": "Thinking..."   # bot chưa trả lời
+                    })
+
+                    # 2. Đánh dấu là có câu hỏi đang chờ xử lý
+                    st.session_state.pending_user_query = user_query
+
+                    # 3. Rerun để render UI ngay
+                    st.rerun()
+                
+                if st.session_state.pending_user_query:
+                    user_query = st.session_state.pending_user_query
+                    route = semantic_router(user_query)
+                    print(f"🔀 Routing to: **{route}**")
+                    if route == "NO_RETRIEVAL":
+                        qa_chain = get_session_direct_chain(
+                            info,
+                            video_summary=st.session_state.video_summary
+                        )
+                    elif route == "RAG":
                         qa_chain = get_session_rag_chain(
-                                        info,
-                                        video_summary=st.session_state.video_summary
-                                    )
+                            info,
+                            video_summary=st.session_state.video_summary
+                        )
 
-                        if qa_chain is None:
-                            answer = "Please analyze the video first."
-                        else:
-                            result = qa_chain.invoke(user_query)
-                            answer = result.content
+                    if qa_chain is None:
+                        answer = "Please analyze the video first."
+                    else:
+                        result = qa_chain.invoke(user_query)
+                        answer = result.content
 
-                            st.session_state.rag_memory.save_context(
-                                {"input": user_query},
-                                {"output": answer}
-                            )
-                        
-                        st.session_state.chat_history.append({
-                            "user": user_query,
-                            "assistant": answer
-                        })
+                        st.session_state.rag_memory.save_context(
+                            {"input": user_query},
+                            {"output": answer}
+                        )
+
+                    st.session_state.chat_history[-1]["assistant"] = answer
+
+                    st.session_state.pending_user_query = None
 
                     st.rerun()
 

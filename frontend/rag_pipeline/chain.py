@@ -4,7 +4,7 @@ from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 # from langchain.memory import ConversationBufferMemory
 # from langchain.chains.conversation.memory import ConversationSummaryMemory
 from langchain_classic.memory import ConversationSummaryMemory
-from rag_pipeline.prompt import RAG_PROMPT
+from rag_pipeline.prompt import RAG_PROMPT, DIRECT_PROMPT
 from dotenv import load_dotenv
 import os
 
@@ -72,6 +72,37 @@ def get_session_rag_chain(video_info, video_summary=None):
             "chat_history": lambda _: memory.load_memory_variables({})["chat_history"]
         }
         | RAG_PROMPT.partial(
+            title=video_info["title"],
+            description=video_info["description"],
+            video_summary=summary_text
+        )
+        | llm
+    )
+
+
+    return chain
+
+def get_session_direct_chain(video_info, video_summary=None):
+    llm = ChatGoogleGenerativeAI(
+        api_key=os.environ["GOOGLE_API_KEY"],
+        model="gemini-2.0-flash",
+        temperature=0.2,
+    )
+
+    memory = get_session_memory()
+
+    summary_text = (
+        video_summary
+        if video_summary is not None
+        else "NOT_PROVIDED"
+    )
+
+    chain = (
+        {
+            "question": RunnablePassthrough(),
+            "chat_history": lambda _: memory.load_memory_variables({})["chat_history"]
+        }
+        | DIRECT_PROMPT.partial(
             title=video_info["title"],
             description=video_info["description"],
             video_summary=summary_text

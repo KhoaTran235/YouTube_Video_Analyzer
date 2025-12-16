@@ -3,27 +3,48 @@ from langchain_core.documents import Document
 from rag_pipeline.gemini_embedding import GeminiEmbedding
 from utils import split_sentences
 
+MAX_BATCH = 100
+MIN_TRANSCRIPT_LEN = 5
 
 def build_comment_vectorstore(comments):
-    """
-    Build a FAISS vector store from video's comments and transcript.
-    comments: list of dict, each dict has "text", "author", "likes", "sentiment" fields
-    """
     embeddings = GeminiEmbedding()
-    docs = [
-        Document(
-            page_content=c["text"],
-            metadata={
-                "type": "comment",
-                "author": c["author"],
-                "sentiment": c["sentiment"],
-                "likeCount": c.get("likeCount", 0),
-            }
-        )
-        for c in comments
-    ]
 
-    return FAISS.from_documents(docs, embeddings)
+    docs = []
+    for c in comments:
+        text = c.get("text", "")
+        if not text or not text.strip():
+            continue
+
+        docs.append(
+            Document(
+                page_content=(
+                    f"[COMMENT]\n"
+                    f"Sentiment: {c['sentiment']}\n"
+                    f"Number of likes: {c.get('likeCount')}\n"
+                    f"Text: {text.strip()}\n"
+                ),
+                metadata={
+                    "type": "comment",
+                    "author": c.get("author", "unknown"),
+                    "sentiment": c.get("sentiment", "unknown"),
+                    "likeCount": c.get("likeCount", 0),
+                }
+            )
+        )
+
+    if not docs:
+        return None  # hoặc raise warning
+    # print(docs)
+    vectorstore = None
+    for i in range(0, len(docs), MAX_BATCH):
+        batch = docs[i:i + MAX_BATCH]
+        if vectorstore is None:
+            vectorstore = FAISS.from_documents(batch, embeddings)
+        else:
+            vectorstore.add_documents(batch)
+
+    return vectorstore
+
 
 
 def chunk_transcript(
@@ -88,9 +109,21 @@ def build_transcript_vectorstore(transcript):
             "duration": float
         }
     """
-    embeddings = GeminiEmbedding()
 
-    docs = [
+    embeddings = GeminiEmbedding()
+    docs = []
+
+    for chunk in chunk_transcript(transcript):
+        text = chunk.get("text", "")
+
+        if not text or not text.strip():
+            continue
+
+        text = text.strip()
+
+        if len(text) < MIN_TRANSCRIPT_LEN:
+            continue
+    docs.append(
         Document(
             page_content=chunk["text"],
             metadata={
@@ -99,8 +132,17 @@ def build_transcript_vectorstore(transcript):
                 "end": chunk["end"]
             }
         )
-        for chunk in chunk_transcript(transcript)
-        if chunk["text"].strip()
-    ]
+    )
 
-    return FAISS.from_documents(docs, embeddings)
+    if not docs:
+        return None  # hoặc raise warning/log
+
+    vectorstore = None
+    for i in range(0, len(docs), MAX_BATCH):
+        batch = docs[i:i + MAX_BATCH]
+        if vectorstore is None:
+            vectorstore = FAISS.from_documents(batch, embeddings)
+        else:
+            vectorstore.add_documents(batch)
+
+    return vectorstore
