@@ -16,6 +16,10 @@ SYSTEM_PROMPT = """
     Video description:
     {description}
 
+    View count: {view_count}
+    Like count: {like_count}
+    Comment count: {comment_count}
+
     High-level video summary (for background understanding only):
     {video_summary}
 

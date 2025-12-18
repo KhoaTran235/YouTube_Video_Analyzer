@@ -74,6 +74,9 @@ def get_session_rag_chain(video_info, video_summary=None):
         | RAG_PROMPT.partial(
             title=video_info["title"],
             description=video_info["description"],
+            view_count=video_info["views"],
+            like_count=video_info["likes"],
+            comment_count=video_info["comments"],
             video_summary=summary_text
         )
         | llm
@@ -105,6 +108,9 @@ def get_session_direct_chain(video_info, video_summary=None):
         | DIRECT_PROMPT.partial(
             title=video_info["title"],
             description=video_info["description"],
+            view_count=video_info["views"],
+            like_count=video_info["likes"],
+            comment_count=video_info["comments"],
             video_summary=summary_text
         )
         | llm
