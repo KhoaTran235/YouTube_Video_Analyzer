@@ -19,33 +19,44 @@ MAX_REQUEST_SAMPLES = 128  # max samples per request
 NUM_WORKERS = 4    # number of concurrent threads
 REQUEST_TIMEOUT = 90.0  # seconds
 
-if "CUDAExecutionProvider" in ort.get_available_providers():
-    provider = "CUDAExecutionProvider"
-else:
-    provider = "CPUExecutionProvider"
-
-HF_REPO = "khoa-tran-hcmut/sentiment_lora_bert"
-
-MODEL_PATH = hf_hub_download(
-    repo_id=HF_REPO,
-    filename="model.onnx",
-    subfolder="onnx_lora_bert"
-)
-tokenizer = AutoTokenizer.from_pretrained(
-    HF_REPO,
-    subfolder="onnx_lora_bert"
-)
-
-print("Loaded from HuggingFace:", MODEL_PATH)
-
-session = ort.InferenceSession(MODEL_PATH, providers=[provider])
-# tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
-print(f"Model loaded on: {session.get_providers()[0]}")
-
-executor = ThreadPoolExecutor(max_workers=NUM_WORKERS)
-
 app = FastAPI(title="Sentiment Analysis API", version="1.0")
 
+session = None
+tokenizer = None
+provider = None
+
+@app.on_event("startup")
+def load_model():
+    global session, tokenizer, provider
+
+    provider = (
+        "CUDAExecutionProvider"
+        if "CUDAExecutionProvider" in ort.get_available_providers()
+        else "CPUExecutionProvider"
+    )
+
+    HF_REPO = "khoa-tran-hcmut/sentiment_lora_bert"
+
+    model_path = hf_hub_download(
+        repo_id=HF_REPO,
+        filename="model.onnx",
+        subfolder="onnx_lora_bert",
+        local_files_only=True   # 🔥 QUAN TRỌNG
+    )
+
+    # 🔥 Load tokenizer OFFLINE từ cache
+    tokenizer = AutoTokenizer.from_pretrained(
+        HF_REPO,
+        subfolder="onnx_lora_bert",
+        local_files_only=True
+    )
+
+    session = ort.InferenceSession(model_path, providers=[provider])
+
+    print("✅ Model loaded on:", session.get_providers()[0])
+
+
+executor = ThreadPoolExecutor(max_workers=NUM_WORKERS)
 
 # Middleware
 app.add_middleware(
