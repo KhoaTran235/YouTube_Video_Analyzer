@@ -6,7 +6,9 @@ def cosine_sim(a, b):
     b = np.array(b)
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
-def semantic_router(query: str):
+def semantic_router(query: str, embedder=GeminiEmbedding()) -> str:
+    if embedder is None:
+        return "NO_RETRIEVAL"
     routes = {
         "NO_RETRIEVAL": "greeting, casual chat, general question, small talk",
         "RAG": (
@@ -14,7 +16,6 @@ def semantic_router(query: str):
             "audience opinion, summary, statistics"
         ),
     }
-    embedder = GeminiEmbedding()
     q_vec = embedder.embed_query(query)
 
     sims = {}

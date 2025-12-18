@@ -1,6 +1,11 @@
 import os
 from googleapiclient.discovery import build
-from youtube_transcript_api import YouTubeTranscriptApi
+from googleapiclient.errors import HttpError
+from youtube_transcript_api import (
+    YouTubeTranscriptApi,
+    TranscriptsDisabled,
+    NoTranscriptFound,
+)
 from dotenv import load_dotenv
 
 
@@ -11,57 +16,90 @@ ytt_api = YouTubeTranscriptApi()
 
 
 def get_video_info(video_id):
-    response = youtube.videos().list(
-        part="snippet,statistics",
-        id=video_id,
+    try:
+        response = youtube.videos().list(
+            part="snippet,statistics",
+            id=video_id,
+        ).execute()
 
-    ).execute()
+        if not response.get("items"):
+            return None
 
-    if not response["items"]:
-        return None
-    item = response["items"][0]
+        item = response["items"][0]
 
-    return {
-        "title": item["snippet"]["title"],
-        "description": item["snippet"]["description"] if (item["snippet"]["description"] != '') else "No description available for this video.",
-        "views": int(item["statistics"].get("viewCount", 0)),
-        "likes": int(item["statistics"].get("likeCount", 0)),
-        "comments": int(item["statistics"].get("commentCount", 0)),
-    }
+        return {
+            "title": item["snippet"]["title"],
+            "description": item["snippet"]["description"]
+            if item["snippet"]["description"] else
+            "No description available for this video.",
+            "views": int(item["statistics"].get("viewCount", 0)),
+            "likes": int(item["statistics"].get("likeCount", 0)),
+            "comments": int(item["statistics"].get("commentCount", 0)),
+        }
+
+    except HttpError as e:
+        raise RuntimeError(f"YouTube API error: {e.reason}") from e
+
+    except Exception as e:
+        raise RuntimeError(f"Unexpected YouTube API error: {str(e)}") from e
+
+
 
 def get_video_transcript(video_id):
-    fetched_transcript = ytt_api.fetch(video_id)
-    return fetched_transcript
+    try:
+        return ytt_api.fetch(video_id)
+
+    except TranscriptsDisabled:
+        raise RuntimeError("Transcript is disabled for this video")
+
+    except NoTranscriptFound:
+        raise RuntimeError("No transcript found for this video")
+
+    except Exception as e:
+        raise RuntimeError(f"Transcript API error: {str(e)}") from e
+    
+# def get_video_transcript(video_id):
+#     fetched_transcript = ytt_api.fetch(video_id)
+#     return fetched_transcript
 
 def get_video_comments(video_id, max_results=1000):
     comments = []
-    request = youtube.commentThreads().list(
-        part="snippet",
-        videoId=video_id,
-        textFormat="plainText",
-        maxResults=max_results
-    )
-    response = request.execute()
 
-    while response:
-        for item in response["items"]:
-            snippet = item["snippet"]["topLevelComment"]["snippet"]
-            comments.append({
-                "author": snippet["authorDisplayName"],
-                "text": snippet["textOriginal"],
-                "likeCount": snippet.get("likeCount", 0)
-            })
+    try:
+        request = youtube.commentThreads().list(
+            part="snippet",
+            videoId=video_id,
+            textFormat="plainText",
+            maxResults=min(max_results, 100)
+        )
 
-        if "nextPageToken" in response and len(comments) < max_results:
-            request = youtube.commentThreads().list(
-                part="snippet",
-                videoId=video_id,
-                pageToken=response["nextPageToken"],
-                textFormat="plainText",
-                maxResults=min(max_results - len(comments), 100)
-            )
-            response = request.execute()
-        else:
-            break
+        response = request.execute()
 
-    return comments
+        while response:
+            for item in response.get("items", []):
+                snippet = item["snippet"]["topLevelComment"]["snippet"]
+                comments.append({
+                    "author": snippet["authorDisplayName"],
+                    "text": snippet["textOriginal"],
+                    "likeCount": snippet.get("likeCount", 0)
+                })
+
+            if "nextPageToken" in response and len(comments) < max_results:
+                request = youtube.commentThreads().list(
+                    part="snippet",
+                    videoId=video_id,
+                    pageToken=response["nextPageToken"],
+                    textFormat="plainText",
+                    maxResults=min(max_results - len(comments), 100)
+                )
+                response = request.execute()
+            else:
+                break
+
+        return comments
+
+    except HttpError as e:
+        raise RuntimeError(f"YouTube Comments API error: {e.reason}") from e
+
+    except Exception as e:
+        raise RuntimeError(f"Unexpected comments API error: {str(e)}") from e

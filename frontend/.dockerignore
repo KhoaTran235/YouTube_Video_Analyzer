@@ -1,0 +1,30 @@
+# Bỏ các folder không cần thiết
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+
+# Bỏ các folder tạm / dev
+env/
+.env
+*.env
+venv/
+.venv/
+.cache/
+logs/
+tmp/
+output/
+checkpoints/
+
+# Bỏ Git và tài liệu
+.git/
+.gitignore
+README.md
+
+# Nếu có notebook huấn luyện, không cần copy lên container inference
+*.ipynb
+
+# Nếu bạn host model từ S3 hoặc mount volume, bỏ model local
+# onnx_lora_bert/
+test.py

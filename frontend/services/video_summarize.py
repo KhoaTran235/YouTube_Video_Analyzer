@@ -28,10 +28,24 @@ def summarize_video(video_url):
 
     Write in clear, factual language.
     """
-    response = model.generate_content(
-        [
-            {"text": prompt},
-            {"file_data": {"mime_type": "video/mp4", "file_uri": video_url}},
-        ]
-    )
-    return response.text
+    try:
+        response = model.generate_content(
+            [
+                {"text": prompt},
+                {"file_data": {"mime_type": "video/mp4", "file_uri": video_url}},
+            ]
+        )
+
+        if not response or not getattr(response, "text", None):
+            raise RuntimeError("Empty response from Gemini API")
+
+        return response.text
+
+    except genai.types.BlockedPromptException:
+        raise RuntimeError("Gemini blocked the prompt")
+
+    except genai.types.StopCandidateException:
+        raise RuntimeError("Gemini generation stopped unexpectedly")
+
+    except Exception as e:
+        raise RuntimeError(f"Gemini API error: {str(e)}") from e

@@ -9,11 +9,29 @@ SENTIMENT_API_URL = os.getenv("SENTIMENT_API_URL")
 
 def send_batch(chunk):
     payload = {"texts": chunk}
-    response = requests.post(SENTIMENT_API_URL, json=payload, timeout=50)
-    if response.status_code == 200:
+    try:
+        response = requests.post(
+            f"{SENTIMENT_API_URL}/predict",
+            json=payload,
+            timeout=100
+        )
+        response.raise_for_status()  # bắt 4xx / 5xx
+
         return response.json()
-    else:
-        raise RuntimeError(f"Sentiment API error: {response.text}")
+
+    except requests.exceptions.Timeout:
+        raise RuntimeError("Sentiment API timeout")
+
+    except requests.exceptions.ConnectionError:
+        raise RuntimeError("Sentiment API connection error")
+
+    except requests.exceptions.HTTPError as e:
+        raise RuntimeError(
+            f"Sentiment API HTTP error {response.status_code}: {response.text}"
+        ) from e
+
+    except Exception as e:
+        raise RuntimeError(f"Unexpected Sentiment API error: {str(e)}") from e
     
 def analyze_sentiment(comments):
     texts = [c["text"] for c in comments]

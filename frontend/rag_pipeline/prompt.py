@@ -39,7 +39,7 @@ SYSTEM_PROMPT = """
     Allowed sources:
         * [TRANSCRIPT]
         * [COMMENT]
-        * [SUMMARY] (ONLY if the user explicitly asks for a summary or overview)
+        * [SUMMARY] (if provided)
 
     3. Decide which source(s) are relevant:
     - Transcript only
@@ -87,6 +87,6 @@ DIRECT_PROMPT = ChatPromptTemplate.from_messages([
         Question:
         {question}
 
-        Answer directly if the question does not require video-specific information.
+        Answer directly if the question does not require to retrieve other video-specific information.
     """)
 ])

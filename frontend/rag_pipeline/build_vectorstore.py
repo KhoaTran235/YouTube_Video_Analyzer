@@ -6,9 +6,7 @@ from utils import split_sentences
 MAX_BATCH = 100
 MIN_TRANSCRIPT_LEN = 5
 
-def build_comment_vectorstore(comments):
-    embeddings = GeminiEmbedding()
-
+def build_comment_vectorstore(comments, embeddings=GeminiEmbedding()):
     docs = []
     for c in comments:
         text = c.get("text", "")
@@ -98,7 +96,7 @@ def chunk_transcript(
 
     return chunks
 
-def build_transcript_vectorstore(transcript):
+def build_transcript_vectorstore(transcript, embeddings=GeminiEmbedding()):
     """
     Build a FAISS vector store from transcript chunks.
 
@@ -109,8 +107,6 @@ def build_transcript_vectorstore(transcript):
             "duration": float
         }
     """
-
-    embeddings = GeminiEmbedding()
     docs = []
 
     for chunk in chunk_transcript(transcript):
