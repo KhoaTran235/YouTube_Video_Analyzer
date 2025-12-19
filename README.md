@@ -67,7 +67,7 @@ flowchart LR
 ```
 
 ---
-## 🤖 RAG Chatbot
+## RAG Chatbot
 
 Instead of directly answering user questions, the chatbot:
 
