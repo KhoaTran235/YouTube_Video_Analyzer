@@ -13,6 +13,71 @@ A simple web application that helps YouTube Content Creators understand their au
 - RAG (Retrieval-Augmented Generation) chatbot for Q&A on metadata, comments, transcript, summary
 
 ---
+## System Architecture
+
+The application follows a Retrieval-Augmented Generation (RAG) architecture.
+
+- YouTube data (metadata, comments, transcript) is collected via API
+- Comments are analyzed using a Sentiment Analysis API
+- Video is summarized using Google Gemini
+- Comments with sentiment and chunked transcripts are embedded into a vector store
+- The chatbot retrieves relevant context and generates answers using Gemini LLM
+
+```mermaid
+flowchart LR
+    U[User] --> |Input Video URL|UI[Streamlit UI]
+
+    UI --> GS[Gemini LLM]
+    UI --> Y_API[YouTube Data API]
+    UI --> T_API[YouTube Transcript API]
+    
+    Y_API --> M[Metadata]
+    Y_API --> C[Comments]
+    
+    GS --> VS[Video Summary]
+    
+    T_API --> T[Transcript]
+
+    C --> P[Text Pre-processing]
+    P --> S[Sentiment API]
+    S --> CS[Comments + Sentiment]
+    
+    
+    VS --> PRT
+    M --> PRT[Build System Prompt]
+
+    CS --> E[Gemini Embedding Model]
+    T --> E[Gemini Embedding Model]
+    E --> V[(FAISS Vector Store)]
+
+    UI --> Q[User Query]
+    
+    Q --> SM{Semantic Router}
+    PRT --> SM
+
+    SM --> |No retrieve|L[Gemini LLM]
+    SM --> |RAG|R
+
+    V --> R[RAG Pipeline]
+    
+    R --> L
+
+    L --> A[Answer]
+    A --> UI
+```
+
+---
+## 🤖 RAG Chatbot
+
+Instead of directly answering user questions, the chatbot:
+
+1. Retrieves relevant information from comments, transcript
+2. Injects the retrieved context, metadata, summary into the prompt
+3. Generates grounded and explainable answers using Gemini LLM
+
+This approach reduces hallucination and improves factual accuracy.
+
+---
 ## Installation, Configuration and Usage
 
 
